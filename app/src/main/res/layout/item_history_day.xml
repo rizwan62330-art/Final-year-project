@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/bg_dark">
+
+    <!-- Each row = one day record -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="0dp"
+        android:paddingEnd="0dp"
+        android:paddingTop="0dp"
+        android:paddingBottom="0dp"
+        android:gravity="center_vertical"
+        android:minHeight="64dp">
+
+        <!-- Left accent stripe (green=under limit, red=over limit) -->
+        <View
+            android:id="@+id/hist_stripe"
+            android:layout_width="4dp"
+            android:layout_height="match_parent"
+            android:minHeight="64dp"
+            android:background="@color/accent_green" />
+
+        <!-- Card body -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/card_surface"
+            android:paddingStart="14dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp">
+
+            <!-- Top: date + day label + limit badge -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tv_hist_day_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Monday, 01 Dec 2024"
+                        android:textColor="@color/text_white"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif-medium"
+                        tools:ignore="HardcodedText" />
+
+                    <TextView
+                        android:id="@+id/tv_hist_date"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="2024-12-01"
+                        android:textColor="@color/text_dim"
+                        android:textSize="10sp"
+                        android:layout_marginTop="1dp"
+                        tools:ignore="HardcodedText" />
+
+                </LinearLayout>
+
+                <!-- Limit exceeded badge -->
+                <TextView
+                    android:id="@+id/tv_hist_limit_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⚠ OVER LIMIT"
+                    android:textColor="#F85149"
+                    android:textSize="9sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.1"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:background="@drawable/btn_toggle_off"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- Bottom: per-appliance values + total -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Date column spacer (aligns with header) -->
+                <View android:layout_width="0dp" android:layout_height="1dp"
+                    android:layout_weight="2" android:visibility="invisible" />
+
+                <!-- Bulb 1 units -->
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView
+                        android:id="@+id/tv_hist_bulb1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/accent_yellow"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        tools:text="1.24" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="kWh" android:textColor="@color/text_dim"
+                        android:textSize="8sp" android:gravity="center" />
+                </LinearLayout>
+
+                <!-- Bulb 2 units -->
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView
+                        android:id="@+id/tv_hist_bulb2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/accent_yellow"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        tools:text="1.18" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="kWh" android:textColor="@color/text_dim"
+                        android:textSize="8sp" android:gravity="center" />
+                </LinearLayout>
+
+                <!-- Fan 1 units -->
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView
+                        android:id="@+id/tv_hist_fan1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/accent_cyan"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        tools:text="2.64" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="kWh" android:textColor="@color/text_dim"
+                        android:textSize="8sp" android:gravity="center" />
+                </LinearLayout>
+
+                <!-- Fan 2 units -->
+                <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                    <TextView
+                        android:id="@+id/tv_hist_fan2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/accent_cyan"
+                        android:textSize="12sp"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center"
+                        tools:text="2.43" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="kWh" android:textColor="@color/text_dim"
+                        android:textSize="8sp" android:gravity="center" />
+                </LinearLayout>
+
+                <!-- TOTAL -->
+                <TextView
+                    android:id="@+id/tv_hist_total"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="--"
+                    android:textColor="@color/accent_green"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:gravity="end"
+                    android:paddingEnd="4dp"
+                    tools:text="7.49" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Row divider -->
+    <View android:layout_width="match_parent" android:layout_height="1dp"
+        android:background="@color/divider" />
+
+</LinearLayout>

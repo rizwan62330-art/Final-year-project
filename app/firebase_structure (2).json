@@ -1,0 +1,33 @@
+{
+  "energy_monitor": {
+    "reset_units": false,
+    "bulb1": {
+      "voltage": 0,
+      "current": 0,
+      "power":   0,
+      "units":   0,
+      "toggle":  "OFF"
+    },
+    "bulb2": {
+      "voltage": 0,
+      "current": 0,
+      "power":   0,
+      "units":   0,
+      "toggle":  "OFF"
+    },
+    "fan1": {
+      "voltage": 0,
+      "current": 0,
+      "power":   0,
+      "units":   0,
+      "toggle":  "OFF"
+    },
+    "fan2": {
+      "voltage": 0,
+      "current": 0,
+      "power":   0,
+      "units":   0,
+      "toggle":  "OFF"
+    }
+  }
+}

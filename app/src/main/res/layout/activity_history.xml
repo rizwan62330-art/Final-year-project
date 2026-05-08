@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_dark">
+
+    <!-- ══ HEADER ══ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@drawable/header_gradient"
+        android:paddingStart="22dp"
+        android:paddingEnd="22dp"
+        android:paddingTop="48dp"
+        android:paddingBottom="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="USAGE HISTORY"
+            android:textColor="@color/accent_cyan"
+            android:textSize="10sp"
+            android:letterSpacing="0.25"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Monthly Breakdown"
+            android:textColor="@color/text_white"
+            android:textSize="26sp"
+            android:fontFamily="sans-serif-light"
+            android:layout_marginTop="2dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Daily appliance unit consumption · stored on device"
+            android:textColor="@color/text_muted"
+            android:textSize="11sp"
+            android:layout_marginTop="3dp" />
+
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp"
+        android:background="@color/divider" />
+
+    <!-- ══ MONTH PICKER ══ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/card_surface"
+        android:paddingStart="20dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="SELECT MONTH"
+            android:textColor="@color/text_dim"
+            android:textSize="10sp"
+            android:letterSpacing="0.2"
+            android:fontFamily="sans-serif-medium" />
+
+        <Spinner
+            android:id="@+id/spinner_month"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="160dp"
+            android:spinnerMode="dropdown"
+            android:backgroundTint="@color/accent_cyan" />
+
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp"
+        android:background="@color/divider" />
+
+    <!-- ══ MONTHLY SUMMARY STRIP ══ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/card_surface"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="14dp">
+
+        <!-- Total -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MONTH TOTAL"
+                android:textColor="@color/text_dim"
+                android:textSize="9sp"
+                android:letterSpacing="0.15"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/tv_month_total"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-- kWh"
+                android:textColor="@color/accent_cyan"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginTop="3dp"
+                tools:text="42.30 kWh" />
+
+        </LinearLayout>
+
+        <!-- Vertical divider -->
+        <View android:layout_width="1dp" android:layout_height="match_parent"
+            android:background="@color/divider" android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp" />
+
+        <!-- Daily avg -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DAILY AVG"
+                android:textColor="@color/text_dim"
+                android:textSize="9sp"
+                android:letterSpacing="0.15"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/tv_month_avg"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="-- kWh/day"
+                android:textColor="@color/accent_yellow"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginTop="3dp"
+                tools:text="5.10 kWh/day" />
+
+        </LinearLayout>
+
+        <!-- Vertical divider -->
+        <View android:layout_width="1dp" android:layout_height="match_parent"
+            android:background="@color/divider" android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp" />
+
+        <!-- Days recorded -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DAYS"
+                android:textColor="@color/text_dim"
+                android:textSize="9sp"
+                android:letterSpacing="0.15"
+                android:fontFamily="sans-serif-medium" />
+
+            <TextView
+                android:id="@+id/tv_month_days"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textColor="@color/text_white"
+                android:textSize="16sp"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginTop="3dp"
+                tools:text="8 days" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp"
+        android:background="@color/divider" />
+
+    <!-- ══ LEGEND ROW ══ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/card_surface"
+        android:paddingStart="20dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
+
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:text="DATE" android:textColor="@color/text_dim"
+            android:textSize="9sp" android:letterSpacing="0.1"
+            android:fontFamily="sans-serif-medium" />
+
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:gravity="center"
+            android:text="💡B1" android:textColor="@color/accent_yellow"
+            android:textSize="9sp" android:fontFamily="sans-serif-medium" />
+
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:gravity="center"
+            android:text="💡B2" android:textColor="@color/accent_yellow"
+            android:textSize="9sp" android:fontFamily="sans-serif-medium" />
+
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:gravity="center"
+            android:text="🌀F1" android:textColor="@color/accent_cyan"
+            android:textSize="9sp" android:fontFamily="sans-serif-medium" />
+
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:gravity="center"
+            android:text="🌀F2" android:textColor="@color/accent_cyan"
+            android:textSize="9sp" android:fontFamily="sans-serif-medium" />
+
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:gravity="end"
+            android:text="TOTAL" android:textColor="@color/text_muted"
+            android:textSize="9sp" android:fontFamily="sans-serif-medium"
+            android:paddingEnd="4dp" />
+
+    </LinearLayout>
+
+    <View android:layout_width="match_parent" android:layout_height="1dp"
+        android:background="@color/divider" />
+
+    <!-- ══ EMPTY STATE ══ -->
+    <TextView
+        android:id="@+id/tv_history_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No history recorded yet.\n\nUsage data is saved automatically\nat the end of each day."
+        android:textColor="@color/text_dim"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:paddingTop="60dp"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:visibility="gone" />
+
+    <!-- ══ RECORDS LIST ══ -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rv_history"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="24dp" />
+
+</LinearLayout>

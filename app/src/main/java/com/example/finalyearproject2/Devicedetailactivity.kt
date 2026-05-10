@@ -141,13 +141,20 @@ class DeviceDetailActivity : AppCompatActivity() {
     // ─── Convert raw Firebase value → today-only ─────────────────────────────
     // Returns 0.0 when baseline is unknown (not -1/raw like before)
     private fun toTodayUnits(rawFirebase: Double, key: String): Double {
-        val baseline = getTodayBaseline(key)
-        if (baseline < 0.0) {
-            // Baseline not set — fall back to persisted today-units from MainActivity
-            return getPersistedTodayUnits(key)
+        val todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        val prefs = getSharedPreferences(MainActivity.PREFS_BASELINE, Context.MODE_PRIVATE)
+
+        // 1. Try to get today's baseline
+        val baseline = prefs.getString("${key}_${todayKey}", null)?.toDoubleOrNull()
+
+        return if (baseline != null) {
+            // 2. If we have a baseline, the math is accurate even if the app was closed!
+            (rawFirebase - baseline).coerceAtLeast(0.0)
+        } else {
+            // 3. Fallback: If no baseline exists for TODAY, it means the app was
+            // NEVER opened today. We must treat the current raw units as the baseline.
+            0.0
         }
-        val diff = rawFirebase - baseline
-        return if (diff < 0.0) 0.0 else diff
     }
 
     private fun attachListener() {

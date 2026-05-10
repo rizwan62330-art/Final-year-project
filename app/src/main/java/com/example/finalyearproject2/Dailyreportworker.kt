@@ -73,6 +73,7 @@ class DailyReportWorker(
             val request = OneTimeWorkRequestBuilder<DailyReportWorker>()
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS)
                 .addTag("daily_report")
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .build()
 
             WorkManager.getInstance(ctx).enqueueUniqueWork(

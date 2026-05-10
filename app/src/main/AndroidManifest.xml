@@ -2,17 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.finalyearproject2">
 
-    <!-- Internet + network state for Firebase -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Push notifications (required on Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Disable battery optimisation so midnight WorkManager fires reliably -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- WorkManager needs this to run background tasks -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
@@ -24,7 +21,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.SmartEnergy">
 
-        <!-- Splash screen — app entry point -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
@@ -36,16 +32,16 @@
             </intent-filter>
         </activity>
 
-        <!-- Main dashboard — launched by SplashActivity -->
         <activity
             android:name=".MainActivity"
             android:exported="false"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
-        <!-- Device detail / notification destination -->
         <activity
             android:name=".DeviceDetailActivity"
             android:exported="true"
+            android:screenOrientation="portrait"
             android:parentActivityName=".MainActivity"
             android:windowSoftInputMode="adjustResize">
             <meta-data
@@ -53,10 +49,10 @@
                 android:value=".MainActivity" />
         </activity>
 
-        <!-- Monthly usage history screen -->
         <activity
             android:name=".HistoryActivity"
             android:exported="false"
+            android:screenOrientation="portrait"
             android:parentActivityName=".MainActivity">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"

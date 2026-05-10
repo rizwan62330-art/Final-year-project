@@ -198,31 +198,18 @@ class MainActivity : AppCompatActivity() {
 
                     val voltage       = d("voltage")
                     val current       = d("current")
-                    val firebaseUnits = d("units")  // ESP32 cumulative counter
+                    val firebaseUnits = d("units")
 
-                    // ── Set baseline once per session ─────────────────────────
+                    // ── Baseline Logic ────────────────────────────────────────
                     if ((sessionStart[device] ?: -1.0) < 0.0) {
                         val savedBaseline = readBaseline(device)
-                        val existingToday = readTodayUnit(device)
 
-                        val baseline = when {
-                            // Baseline exists — use it (normal case after restart)
-                            savedBaseline != null -> savedBaseline
-
-                            // No baseline but have today data — reconstruct baseline
-                            // so we don't lose accumulated units
-                            existingToday > 0.0 -> {
-                                val reconstructed = (firebaseUnits - existingToday)
-                                    .coerceAtLeast(0.0)
-                                writeBaseline(device, reconstructed) // commit()
-                                reconstructed
-                            }
-
-                            // First read of the day — set baseline = current value
-                            else -> {
-                                writeBaseline(device, firebaseUnits) // commit()
-                                firebaseUnits
-                            }
+                        val baseline = if (savedBaseline != null) {
+                            savedBaseline
+                        } else {
+                            // First time opening app today: Set baseline and SAVE it
+                            writeBaseline(device, firebaseUnits)
+                            firebaseUnits
                         }
                         sessionStart[device] = baseline
                     }
@@ -232,24 +219,23 @@ class MainActivity : AppCompatActivity() {
 
                     val daily: Double = when {
                         raw < -0.01 -> {
-                            // ESP32 restarted and reset its counter mid-day.
-                            // Rebase but KEEP what we already accumulated.
+                            // ESP32 RESET DETECTED: Re-baseline immediately
                             val keep = readTodayUnit(device)
-                            sessionStart[device] = firebaseUnits
-                            writeBaseline(device, firebaseUnits) // commit()
+                            val newBaseline = firebaseUnits - keep
+                            sessionStart[device] = newBaseline
+                            writeBaseline(device, newBaseline)
                             keep
                         }
-                        raw < 0.0 -> readTodayUnit(device) // tiny float error — keep stored
+                        raw < 0.0 -> readTodayUnit(device)
                         else      -> raw
                     }
 
-                    // ── Only accept increases — energy never decreases ─────────
-                    val stored = todayUnits[device] ?: 0.0
-                    if (daily > stored) {
+                    // ── Update Local Storage ──────────────────────────────────
+                    if (daily > (todayUnits[device] ?: 0.0)) {
                         todayUnits[device] = daily
-                        writeTodayUnit(device, daily)          // commit() — safe on close
-                        // Also push to Firebase so MidnightResetWorker can read it
-                        database.child(device).child("today_units").setValue(daily)
+                        writeTodayUnit(device, daily)
+                        // REMOVED: database.child(device).child("today_units").setValue(daily)
+                        // We don't need to push this anymore; Workers calculate it themselves!
                     }
 
                     // ── Update UI ─────────────────────────────────────────────
@@ -261,18 +247,8 @@ class MainActivity : AppCompatActivity() {
                         updateCard("${p}i", current, iView)
                     }
                     refreshTotalUnits()
-
-                    tvStatus.text = "● LIVE"
-                    tvStatus.setTextColor(getColor(R.color.accent_cyan))
-                    tvLastUpdated.text = "Updated: ${
-                        SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(Date())
-                    }"
                 }
-                override fun onCancelled(e: DatabaseError) {
-                    tvStatus.text = "● OFFLINE"
-                    tvStatus.setTextColor(getColor(R.color.status_offline))
-                    tvLastUpdated.text = "No data — check connection"
-                }
+                override fun onCancelled(e: DatabaseError) {}
             }
             sensorListeners[device] = listener
             database.child(device).addValueEventListener(listener)
@@ -305,18 +281,24 @@ class MainActivity : AppCompatActivity() {
     private fun attachResetListener() {
         resetListener = object : ValueEventListener {
             override fun onDataChange(snap: DataSnapshot) {
+                // If the value is 'true', the MidnightWorker just finished saving history!
                 if (snap.getValue(Boolean::class.java) != true) return
 
-                clearPrefsForDate(dateKey()) // commit() inside
+                // 1. Wipe OLD day data from preferences
+                clearPrefsForDate(dateKey())
+
+                // 2. Reset in-memory state
                 DEVICES.forEach { device ->
                     sessionStart[device] = -1.0
                     todayUnits[device]   = 0.0
                 }
                 prevValues.clear()
-                lastLimitNotifTime = 0L
+
+                // 3. UI Update
                 refreshTotalUnits()
                 refreshUnitTextViews()
-                // Clear flag so it doesn't trigger again on next restart
+
+                // 4. Acknowledge the reset so it doesn't loop
                 database.child("reset_units").setValue(false)
             }
             override fun onCancelled(e: DatabaseError) {}

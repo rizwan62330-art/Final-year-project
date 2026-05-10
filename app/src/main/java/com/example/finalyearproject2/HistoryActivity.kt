@@ -14,7 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
  * HistoryActivity
  * ─────────────────────────────────────────────────────────────────────────────
  * Shows monthly energy history stored on the phone.
- * User picks a month from the Spinner → RecyclerView shows day-by-day breakdown.
+ * Updated to refresh on Resume to ensure latest Worker data is visible.
  */
 class HistoryActivity : AppCompatActivity() {
 
@@ -34,17 +34,21 @@ class HistoryActivity : AppCompatActivity() {
 
         supportActionBar?.apply {
             setDisplayHomeAsUpEnabled(true)
-            title = ""
+            title = "Energy History" // Give it a title
         }
 
         bindViews()
         setupRecyclerView()
+    }
+
+    // Refresh data whenever user returns to this screen
+    override fun onResume() {
+        super.onResume()
         loadMonths()
     }
 
     override fun onSupportNavigateUp(): Boolean { finish(); return true }
 
-    // ── Bind views ────────────────────────────────────────────────────────────
     private fun bindViews() {
         spinnerMonth  = findViewById(R.id.spinner_month)
         recyclerView  = findViewById(R.id.rv_history)
@@ -54,23 +58,24 @@ class HistoryActivity : AppCompatActivity() {
         tvMonthDays   = findViewById(R.id.tv_month_days)
     }
 
-    // ── RecyclerView setup ────────────────────────────────────────────────────
     private fun setupRecyclerView() {
         adapter = HistoryDayAdapter(emptyList())
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
     }
 
-    // ── Load available months into spinner ────────────────────────────────────
     private fun loadMonths() {
         months = HistoryManager.availableMonths(this)
 
         if (months.isEmpty()) {
             showEmpty()
+            // Reset stats to zero if no data
+            tvMonthTotal.text = "0.00 kWh"
+            tvMonthAvg.text   = "0.00 kWh/day"
+            tvMonthDays.text  = "0 days recorded"
             return
         }
 
-        // Build display labels "December 2024" etc.
         val labels = months.map { HistoryManager.monthDisplayName(it) }
 
         val spinnerAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labels)
@@ -84,11 +89,10 @@ class HistoryActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        // Auto-select current month (index 0 = newest)
+        // Always show newest data first
         loadMonthData(months[0])
     }
 
-    // ── Load records for a specific month ────────────────────────────────────
     private fun loadMonthData(yearMonth: String) {
         val records = HistoryManager.loadMonth(this, yearMonth)
 
@@ -100,9 +104,9 @@ class HistoryActivity : AppCompatActivity() {
         hideEmpty()
         adapter.updateRecords(records)
 
-        // Update summary stats
         val totalKwh = records.sumOf { it.total }
         val avgKwh   = totalKwh / records.size
+
         tvMonthTotal.text = "%.2f kWh".format(totalKwh)
         tvMonthAvg.text   = "%.2f kWh/day".format(avgKwh)
         tvMonthDays.text  = "${records.size} days recorded"

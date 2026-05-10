@@ -1,6 +1,8 @@
 package com.example.finalyearproject2
 
 import android.content.Context
+import com.google.firebase.database.FirebaseDatabase
+import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -10,7 +12,8 @@ import java.util.*
 /*
  * HistoryManager
  * ─────────────────────────────────────────────────────────────────────────────
- * Stores and retrieves daily energy snapshots to/from local phone storage.
+ * Stores and retrieves daily energy snapshots.
+ * Updated to calculate consumption independently from Firebase.
  */
 object HistoryManager {
 
@@ -30,6 +33,47 @@ object HistoryManager {
         val limitHit: Boolean
     )
 
+    /**
+     * NEW: Fetches raw data from Firebase and saves a snapshot.
+     * Call this from MidnightResetWorker BEFORE resetting.
+     */
+    suspend fun fetchAndSaveDailySnapshot(ctx: Context) {
+        val todayKey = fmtKey.format(Date())
+
+        // 1. Access the Baselines saved by MainActivity when the day started
+        val bPrefs = ctx.getSharedPreferences(MainActivity.PREFS_BASELINE, Context.MODE_PRIVATE)
+
+        // 2. Connect to Firebase to get the RAW cumulative units
+        val db = FirebaseDatabase
+            .getInstance("https://final-year-project-a75d4-default-rtdb.firebaseio.com/")
+            .getReference("energy_monitor")
+
+        val results = mutableMapOf<String, Double>()
+
+        // 3. Calculate: (Current Raw Firebase Units) - (Stored Morning Baseline)
+        MainActivity.DEVICES.forEach { device ->
+            val rawFirebase = try {
+                db.child(device).child("units").get().await().getValue(Double::class.java) ?: 0.0
+            } catch (e: Exception) { 0.0 }
+
+            val baseline = bPrefs.getString("${device}_$todayKey", null)?.toDoubleOrNull() ?: rawFirebase
+
+            results[device] = (rawFirebase - baseline).coerceAtLeast(0.0)
+        }
+
+        // 4. Save to JSON
+        saveTodaySnapshot(
+            ctx,
+            results["bulb1"] ?: 0.0,
+            results["bulb2"] ?: 0.0,
+            results["fan1"]  ?: 0.0,
+            results["fan2"]  ?: 0.0
+        )
+    }
+
+    /**
+     * Saves the provided values to the local JSON history file.
+     */
     fun saveTodaySnapshot(
         ctx:   Context,
         bulb1: Double,
@@ -45,22 +89,13 @@ object HistoryManager {
 
         val records = loadAll(ctx).toMutableList()
 
+        // Remove existing entry for today if it exists, then add the new one at the top
         records.removeAll { it.date == todayKey }
         records.add(0, DayRecord(todayKey, label, bulb1, bulb2, fan1, fan2, total, hitLimit))
 
-        val trimmed = records.take(31)
-
-        val cal = Calendar.getInstance()
-        cal.time = date
-        if (cal.get(Calendar.DAY_OF_MONTH) >= 7) {
-            val cleanupCal = Calendar.getInstance().apply { time = date }
-            cleanupCal.add(Calendar.MONTH, -1)
-            val prevMonth = fmtYM.format(cleanupCal.time)
-            val cleaned   = trimmed.filterNot { it.date.startsWith(prevMonth) }
-            saveAll(ctx, cleaned)
-        } else {
-            saveAll(ctx, trimmed)
-        }
+        // Keep last 31 days or purge old month data
+        val trimmed = records.take(60) // Increased buffer for month-viewing
+        saveAll(ctx, trimmed)
     }
 
     fun purgeOldDataIfNeeded(ctx: Context) {
@@ -81,7 +116,7 @@ object HistoryManager {
 
     fun removeSuspiciousRecords(ctx: Context) {
         val records  = loadAll(ctx)
-        val cleaned  = records.filter { it.total <= 24.0 }
+        val cleaned  = records.filter { it.total <= 24.0 } // 24kWh is a very high daily max
         if (cleaned.size != records.size) saveAll(ctx, cleaned)
     }
 

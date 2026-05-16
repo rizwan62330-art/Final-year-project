@@ -24,42 +24,39 @@ class MainActivity : AppCompatActivity() {
     private var resetListener: ValueEventListener? = null
 
     // ── Views ─────────────────────────────────────────────────────────────────
-    private lateinit var tvStatus: TextView
-    private lateinit var tvLastUpdated: TextView
-    private lateinit var tvTotalUnits: TextView
-    private lateinit var tvUnitsLimit: TextView
-    private lateinit var btnHistory: TextView
+    private lateinit var tvStatus:       TextView
+    private lateinit var tvLastUpdated:  TextView
+    private lateinit var tvTotalUnits:   TextView
+    private lateinit var tvUnitsLimit:   TextView
+    private lateinit var btnHistory:     TextView
     private lateinit var tvBulb1Voltage: TextView
     private lateinit var tvBulb1Current: TextView
-    private lateinit var tvBulb1Units: TextView
+    private lateinit var tvBulb1Units:   TextView
     private lateinit var btnBulb1Toggle: TextView
     private lateinit var tvBulb2Voltage: TextView
     private lateinit var tvBulb2Current: TextView
-    private lateinit var tvBulb2Units: TextView
+    private lateinit var tvBulb2Units:   TextView
     private lateinit var btnBulb2Toggle: TextView
-    private lateinit var tvFan1Voltage: TextView
-    private lateinit var tvFan1Current: TextView
-    private lateinit var tvFan1Units: TextView
-    private lateinit var btnFan1Toggle: TextView
-    private lateinit var tvFan2Voltage: TextView
-    private lateinit var tvFan2Current: TextView
-    private lateinit var tvFan2Units: TextView
-    private lateinit var btnFan2Toggle: TextView
+    private lateinit var tvFan1Voltage:  TextView
+    private lateinit var tvFan1Current:  TextView
+    private lateinit var tvFan1Units:    TextView
+    private lateinit var btnFan1Toggle:  TextView
+    private lateinit var tvFan2Voltage:  TextView
+    private lateinit var tvFan2Current:  TextView
+    private lateinit var tvFan2Units:    TextView
+    private lateinit var btnFan2Toggle:  TextView
 
     // ── State ─────────────────────────────────────────────────────────────────
     private val toggleState = mutableMapOf(
         "bulb1" to false, "bulb2" to false,
         "fan1"  to false, "fan2"  to false
     )
-
-    // today's consumption — loaded from SharedPreferences on every open
     val todayUnits = mutableMapOf(
         "bulb1" to 0.0, "bulb2" to 0.0,
         "fan1"  to 0.0, "fan2"  to 0.0
     )
-
-    // in-memory baseline — set once per session from SharedPreferences
-    private val sessionStart = mutableMapOf(
+    // In-memory baseline — rebuilt from prefs each session
+    private val sessionBaseline = mutableMapOf(
         "bulb1" to -1.0, "bulb2" to -1.0,
         "fan1"  to -1.0, "fan2"  to -1.0
     )
@@ -71,46 +68,35 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val DAILY_LIMIT_KWH  = 6.5
-        const val PREFS_BASELINE   = "daily_baseline"
-        const val PREFS_TODAY_VALS = "today_units"
+        const val PREFS_UNITS      = "sp_today_units"    // stores today's kWh per device
+        const val PREFS_BASELINE   = "sp_day_baseline"   // stores today's ESP32 start value
+        const val PREFS_TODAY_VALS = "today_values_prefs"
+
         val DEVICES = listOf("bulb1", "bulb2", "fan1", "fan2")
     }
+    private fun uPrefs(): SharedPreferences = getSharedPreferences(PREFS_UNITS,    MODE_PRIVATE)
+    private fun bPrefs(): SharedPreferences = getSharedPreferences(PREFS_BASELINE, MODE_PRIVATE)
 
-    // ══════════════════════════════════════════════════════════════════════════
-    //  SharedPreferences — ALL writes use commit() not apply()
-    //  commit() is synchronous — guaranteed written to disk even if OS kills
-    //  the app process immediately after. apply() is async and can be lost.
-    // ══════════════════════════════════════════════════════════════════════════
-    private fun bPrefs(): SharedPreferences =
-        getSharedPreferences(PREFS_BASELINE,   MODE_PRIVATE)
-    private fun tPrefs(): SharedPreferences =
-        getSharedPreferences(PREFS_TODAY_VALS, MODE_PRIVATE)
+    // Returns today's date as "yyyy-MM-dd" — used as part of the prefs key
+    // so old days' data is automatically ignored (different key)
+    private fun dk(): String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
-    private fun dateKey(): String =
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    // Read today's saved unit for a device. Returns 0.0 if nothing saved yet.
+    fun readUnit(device: String): Double =
+        uPrefs().getString("${device}_${dk()}", null)?.toDoubleOrNull() ?: 0.0
 
-    // Read saved today-unit for a device (null = never saved today)
-    fun readTodayUnit(device: String): Double =
-        tPrefs().getString("${device}_${dateKey()}", null)?.toDoubleOrNull() ?: 0.0
-
-    // Write today-unit — commit() guarantees disk write before returning
-    private fun writeTodayUnit(device: String, value: Double) {
-        tPrefs().edit().putString("${device}_${dateKey()}", value.toString()).commit()
+    // Write today's unit — commit() guarantees it's on disk before returning
+    private fun saveUnit(device: String, value: Double) {
+        uPrefs().edit().putString("${device}_${dk()}", value.toString()).commit()
     }
 
-    // Read baseline for today (null = not set yet)
+    // Read today's baseline (ESP32 cumulative value at start of day)
     private fun readBaseline(device: String): Double? =
-        bPrefs().getString("${device}_${dateKey()}", null)?.toDoubleOrNull()
+        bPrefs().getString("${device}_${dk()}", null)?.toDoubleOrNull()
 
-    // Write baseline — commit() guarantees disk write
-    private fun writeBaseline(device: String, value: Double) {
-        bPrefs().edit().putString("${device}_${dateKey()}", value.toString()).commit()
-    }
-
-    // Clear both prefs for a given date (used at midnight reset)
-    private fun clearPrefsForDate(dk: String) {
-        bPrefs().edit().apply { DEVICES.forEach { remove("${it}_$dk") }; commit() }
-        tPrefs().edit().apply { DEVICES.forEach { remove("${it}_$dk") }; commit() }
+    // Write today's baseline — commit()
+    private fun saveBaseline(device: String, value: Double) {
+        bPrefs().edit().putString("${device}_${dk()}", value.toString()).commit()
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -121,11 +107,10 @@ class MainActivity : AppCompatActivity() {
         bindViews()
         initFirebase()
 
-        // ── Load saved values IMMEDIATELY — before any Firebase call ──────────
-        // This is the single most important step. SharedPreferences is read
-        // synchronously and always has the latest values (written with commit()).
-        // The UI shows correct numbers the instant the app opens.
-        DEVICES.forEach { device -> todayUnits[device] = readTodayUnit(device) }
+        // ── Load saved values from SharedPreferences IMMEDIATELY ──────────────
+        // commit() guarantees these were written to disk. This shows the
+        // correct values the instant the app opens, before Firebase responds.
+        DEVICES.forEach { todayUnits[it] = readUnit(it) }
         refreshUnitTextViews()
         refreshTotalUnits()
 
@@ -139,13 +124,11 @@ class MainActivity : AppCompatActivity() {
         HistoryManager.removeSuspiciousRecords(this)
         btnHistory.setOnClickListener { startActivity(Intent(this, HistoryActivity::class.java)) }
 
-        // ── Attach Firebase listeners ─────────────────────────────────────────
         attachToggleListeners()
         attachSensorListeners()
         attachResetListener()
     }
 
-    // ─── Views ────────────────────────────────────────────────────────────────
     private fun bindViews() {
         tvStatus       = findViewById(R.id.tv_status)
         tvLastUpdated  = findViewById(R.id.tv_last_updated)
@@ -186,8 +169,12 @@ class MainActivity : AppCompatActivity() {
 
     // ══════════════════════════════════════════════════════════════════════════
     //  SENSOR LISTENER
-    //  For each device, calculates daily = firebaseUnits - baseline.
-    //  Both baseline and daily are saved with commit() immediately.
+    //
+    //  Calculates daily = firebaseUnits - baseline, saves to SharedPreferences,
+    //  and also writes today_units to Firebase so workers can read it.
+    //
+    //  SharedPreferences (not Firebase today_units) is the source of truth
+    //  for the UI. Firebase today_units is only for workers/notifications.
     // ══════════════════════════════════════════════════════════════════════════
     private fun attachSensorListeners() {
         DEVICES.forEach { device ->
@@ -198,57 +185,78 @@ class MainActivity : AppCompatActivity() {
 
                     val voltage       = d("voltage")
                     val current       = d("current")
-                    val firebaseUnits = d("units")
+                    val firebaseUnits = d("units")  // ESP32 cumulative counter
 
-                    // ── Baseline Logic ────────────────────────────────────────
-                    if ((sessionStart[device] ?: -1.0) < 0.0) {
-                        val savedBaseline = readBaseline(device)
-
-                        val baseline = if (savedBaseline != null) {
-                            savedBaseline
+                    // ── Establish baseline once per session ───────────────────
+                    if ((sessionBaseline[device] ?: -1.0) < 0.0) {
+                        // Try to restore from prefs first
+                        val saved = readBaseline(device)
+                        val sessionBaseline_val = if (saved != null) {
+                            // Baseline was saved earlier today — restore it
+                            saved
                         } else {
-                            // First time opening app today: Set baseline and SAVE it
-                            writeBaseline(device, firebaseUnits)
+                            // First read today — set baseline = current Firebase value
+                            // and save immediately with commit()
+                            saveBaseline(device, firebaseUnits)
                             firebaseUnits
                         }
-                        sessionStart[device] = baseline
+                        sessionBaseline[device] = sessionBaseline_val
                     }
 
-                    val baseline = sessionStart[device]!!
+                    val baseline = sessionBaseline[device]!!
                     val raw      = firebaseUnits - baseline
 
                     val daily: Double = when {
                         raw < -0.01 -> {
-                            // ESP32 RESET DETECTED: Re-baseline immediately
-                            val keep = readTodayUnit(device)
-                            val newBaseline = firebaseUnits - keep
-                            sessionStart[device] = newBaseline
-                            writeBaseline(device, newBaseline)
+                            // ESP32 restarted mid-day — rebase, keep accumulated value
+                            val keep = readUnit(device)
+                            sessionBaseline[device] = firebaseUnits
+                            saveBaseline(device, firebaseUnits)
                             keep
                         }
-                        raw < 0.0 -> readTodayUnit(device)
+                        raw < 0.0 -> readUnit(device)
                         else      -> raw
                     }
 
-                    // ── Update Local Storage ──────────────────────────────────
-                    if (daily > (todayUnits[device] ?: 0.0)) {
-                        todayUnits[device] = daily
-                        writeTodayUnit(device, daily)
-                        // REMOVED: database.child(device).child("today_units").setValue(daily)
-                        // We don't need to push this anymore; Workers calculate it themselves!
+                    // ── Always save the latest value to prefs ─────────────────
+                    // We do NOT use "if (daily > stored)" because:
+                    //   - When raw < -0.01, daily = readUnit() which equals stored,
+                    //     so the condition is false and nothing gets saved.
+                    //   - This means on the next restart, prefs still has the old
+                    //     value and the baseline is recalculated wrong.
+                    // Fix: always write, every time. commit() is fast (<1ms on
+                    // most devices) and SharedPreferences handles deduplication.
+                    todayUnits[device] = daily
+                    saveUnit(device, daily)   // commit() — always, every update
+
+                    // Also push to Firebase for workers/notifications
+                    database.child(device).child("today_units").setValue(daily)
+
+                    // ── Update unit TextView ──────────────────────────────────
+                    val uView = unitTextView(device)
+                    val p     = devicePrefix(device)
+                    if (uView != null) updateCard("${p}u", todayUnits[device]!!, uView)
+
+                    // ── Voltage and current — only when device is ON ──────────
+                    if (toggleState[device] == true) {
+                        val vView = voltageTextView(device)
+                        val iView = currentTextView(device)
+                        if (vView != null) updateCard("${p}v", voltage, vView)
+                        if (iView != null) updateCard("${p}i", current, iView)
                     }
 
-                    // ── Update UI ─────────────────────────────────────────────
-                    val (vView, iView, uView) = deviceValueViews(device) ?: return
-                    val p = devicePrefix(device)
-                    updateCard("${p}u", todayUnits[device]!!, uView)
-                    if (toggleState[device] == true) {
-                        updateCard("${p}v", voltage, vView)
-                        updateCard("${p}i", current, iView)
-                    }
                     refreshTotalUnits()
+                    tvStatus.text = "● LIVE"
+                    tvStatus.setTextColor(getColor(R.color.accent_cyan))
+                    tvLastUpdated.text = "Updated: ${
+                        SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(Date())
+                    }"
                 }
-                override fun onCancelled(e: DatabaseError) {}
+                override fun onCancelled(e: DatabaseError) {
+                    tvStatus.text = "● OFFLINE"
+                    tvStatus.setTextColor(getColor(R.color.status_offline))
+                    tvLastUpdated.text = "No data — check connection"
+                }
             }
             sensorListeners[device] = listener
             database.child(device).addValueEventListener(listener)
@@ -276,29 +284,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    //  RESET LISTENER — midnight reset signal from MidnightResetWorker
+    //  RESET LISTENER — midnight signal from MidnightResetWorker
     // ══════════════════════════════════════════════════════════════════════════
     private fun attachResetListener() {
         resetListener = object : ValueEventListener {
             override fun onDataChange(snap: DataSnapshot) {
-                // If the value is 'true', the MidnightWorker just finished saving history!
                 if (snap.getValue(Boolean::class.java) != true) return
 
-                // 1. Wipe OLD day data from preferences
-                clearPrefsForDate(dateKey())
+                val today = dk()
+                // Clear units and baselines for today from prefs
+                uPrefs().edit().apply { DEVICES.forEach { remove("${it}_$today") }; commit() }
+                bPrefs().edit().apply { DEVICES.forEach { remove("${it}_$today") }; commit() }
 
-                // 2. Reset in-memory state
+                // Reset in-memory state
                 DEVICES.forEach { device ->
-                    sessionStart[device] = -1.0
-                    todayUnits[device]   = 0.0
+                    sessionBaseline[device] = -1.0
+                    todayUnits[device]      = 0.0
                 }
                 prevValues.clear()
-
-                // 3. UI Update
+                lastLimitNotifTime = 0L
                 refreshTotalUnits()
                 refreshUnitTextViews()
 
-                // 4. Acknowledge the reset so it doesn't loop
+                // Clear the reset flag so it doesn't trigger again on next restart
                 database.child("reset_units").setValue(false)
             }
             override fun onCancelled(e: DatabaseError) {}
@@ -325,15 +333,11 @@ class MainActivity : AppCompatActivity() {
 
     // ── Toggle button UI ──────────────────────────────────────────────────────
     private fun applyToggleUI(device: String, isOn: Boolean) {
-        val (btn, vView, iView, _) = when (device) {
-            "bulb1" -> Quad(btnBulb1Toggle, tvBulb1Voltage, tvBulb1Current, tvBulb1Units)
-            "bulb2" -> Quad(btnBulb2Toggle, tvBulb2Voltage, tvBulb2Current, tvBulb2Units)
-            "fan1"  -> Quad(btnFan1Toggle,  tvFan1Voltage,  tvFan1Current,  tvFan1Units)
-            "fan2"  -> Quad(btnFan2Toggle,  tvFan2Voltage,  tvFan2Current,  tvFan2Units)
-            else    -> return
-        }
+        val btn   = toggleButton(device)    ?: return
+        val vView = voltageTextView(device) ?: return
+        val iView = currentTextView(device) ?: return
         if (isOn) {
-            btn.text = "ON"; btn.setTextColor(getColor(R.color.accent_green))
+            btn.text = "ON";  btn.setTextColor(getColor(R.color.accent_green))
             btn.setBackgroundResource(R.drawable.btn_toggle_on)
         } else {
             btn.text = "OFF"; btn.setTextColor(getColor(R.color.status_offline))
@@ -342,56 +346,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private data class Quad(val btn: TextView, val v: TextView, val i: TextView, val u: TextView)
-
-    // ── Card & toggle taps ────────────────────────────────────────────────────
-    private fun setupCardClickListeners() {
-        listOf(
-            Triple(R.id.card_bulb1, "Bulb 1", "bulb1"),
-            Triple(R.id.card_bulb2, "Bulb 2", "bulb2"),
-            Triple(R.id.card_fan1,  "Fan 1",  "fan1"),
-            Triple(R.id.card_fan2,  "Fan 2",  "fan2")
-        ).forEach { (id, name, key) ->
-            findViewById<CardView>(id).setOnClickListener {
-                startActivity(Intent(this, DeviceDetailActivity::class.java).apply {
-                    putExtra("device_name", name); putExtra("device_key", key)
-                })
-            }
-        }
+    // ── View helpers ──────────────────────────────────────────────────────────
+    private fun unitTextView(d: String): TextView? = when (d) {
+        "bulb1" -> tvBulb1Units;   "bulb2" -> tvBulb2Units
+        "fan1"  -> tvFan1Units;    "fan2"  -> tvFan2Units; else -> null
     }
-
-    private fun setupToggleClickListeners() {
-        mapOf(
-            btnBulb1Toggle to "bulb1", btnBulb2Toggle to "bulb2",
-            btnFan1Toggle  to "fan1",  btnFan2Toggle  to "fan2"
-        ).forEach { (btn, device) ->
-            btn.setOnClickListener {
-                it.parent?.requestDisallowInterceptTouchEvent(true)
-                val newState = !(toggleState[device] ?: false)
-                database.child(device).child("toggle")
-                    .setValue(if (newState) "ON" else "OFF")
-                    .addOnFailureListener {
-                        Snackbar.make(
-                            findViewById(android.R.id.content),
-                            "Could not signal $device. Check internet.",
-                            Snackbar.LENGTH_SHORT
-                        ).show()
-                    }
-            }
-        }
+    private fun voltageTextView(d: String): TextView? = when (d) {
+        "bulb1" -> tvBulb1Voltage; "bulb2" -> tvBulb2Voltage
+        "fan1"  -> tvFan1Voltage;  "fan2"  -> tvFan2Voltage; else -> null
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    private fun deviceValueViews(device: String): Triple<TextView, TextView, TextView>? =
-        when (device) {
-            "bulb1" -> Triple(tvBulb1Voltage, tvBulb1Current, tvBulb1Units)
-            "bulb2" -> Triple(tvBulb2Voltage, tvBulb2Current, tvBulb2Units)
-            "fan1"  -> Triple(tvFan1Voltage,  tvFan1Current,  tvFan1Units)
-            "fan2"  -> Triple(tvFan2Voltage,  tvFan2Current,  tvFan2Units)
-            else    -> null
-        }
-
-    private fun devicePrefix(device: String) = when (device) {
+    private fun currentTextView(d: String): TextView? = when (d) {
+        "bulb1" -> tvBulb1Current; "bulb2" -> tvBulb2Current
+        "fan1"  -> tvFan1Current;  "fan2"  -> tvFan2Current; else -> null
+    }
+    private fun toggleButton(d: String): TextView? = when (d) {
+        "bulb1" -> btnBulb1Toggle; "bulb2" -> btnBulb2Toggle
+        "fan1"  -> btnFan1Toggle;  "fan2"  -> btnFan2Toggle; else -> null
+    }
+    private fun devicePrefix(d: String) = when (d) {
         "bulb1" -> "b1"; "bulb2" -> "b2"; "fan1" -> "f1"; else -> "f2"
     }
 
@@ -409,7 +381,45 @@ class MainActivity : AppCompatActivity() {
         prevValues[key] = newVal
     }
 
-    // ── Workers & background ──────────────────────────────────────────────────
+    // ── Card taps ─────────────────────────────────────────────────────────────
+    private fun setupCardClickListeners() {
+        listOf(
+            Triple(R.id.card_bulb1, "Bulb 1", "bulb1"),
+            Triple(R.id.card_bulb2, "Bulb 2", "bulb2"),
+            Triple(R.id.card_fan1,  "Fan 1",  "fan1"),
+            Triple(R.id.card_fan2,  "Fan 2",  "fan2")
+        ).forEach { (id, name, key) ->
+            findViewById<CardView>(id).setOnClickListener {
+                startActivity(Intent(this, DeviceDetailActivity::class.java).apply {
+                    putExtra("device_name", name); putExtra("device_key", key)
+                })
+            }
+        }
+    }
+
+    // ── Toggle taps ───────────────────────────────────────────────────────────
+    private fun setupToggleClickListeners() {
+        mapOf(
+            btnBulb1Toggle to "bulb1", btnBulb2Toggle to "bulb2",
+            btnFan1Toggle  to "fan1",  btnFan2Toggle  to "fan2"
+        ).forEach { (btn, device) ->
+            btn.setOnClickListener {
+                it.parent?.requestDisallowInterceptTouchEvent(true)
+                val newState = !(toggleState[device] ?: false)
+                database.child(device).child("toggle")
+                    .setValue(if (newState) "ON" else "OFF")
+                    .addOnFailureListener {
+                        Snackbar.make(
+                            findViewById(android.R.id.content),
+                            "Could not signal $device.",
+                            Snackbar.LENGTH_SHORT
+                        ).show()
+                    }
+            }
+        }
+    }
+
+    // ── Workers ───────────────────────────────────────────────────────────────
     private fun scheduleWorkers() {
         DailyReportWorker.scheduleNext9PM(this)
         MidnightResetWorker.scheduleNextMidnight(this)
@@ -423,13 +433,13 @@ class MainActivity : AppCompatActivity() {
         }.time)
         if (HistoryManager.loadAll(this).any { it.date == yesterday }) return
 
-        // Read from PREFS_TODAY_VALS using yesterday's key — always correct
-        val tPrefsLocal = getSharedPreferences(PREFS_TODAY_VALS, MODE_PRIVATE)
+        // Read yesterday's values from PREFS_UNITS using yesterday's date key
         fun readYest(dev: String) =
-            tPrefsLocal.getString("${dev}_$yesterday", null)?.toDoubleOrNull() ?: 0.0
+            uPrefs().getString("${dev}_$yesterday", null)?.toDoubleOrNull() ?: 0.0
 
         val b1u = readYest("bulb1"); val b2u = readYest("bulb2")
         val f1u = readYest("fan1");  val f2u = readYest("fan2")
+
         if ((b1u + b2u + f1u + f2u) > 0.0) {
             HistoryManager.saveTodaySnapshot(this, b1u, b2u, f1u, f2u)
         }
@@ -445,7 +455,7 @@ class MainActivity : AppCompatActivity() {
                     prefs.edit().putBoolean("battery_opt_asked", true).apply()
                     AlertDialog.Builder(this)
                         .setTitle("Enable Background Sync")
-                        .setMessage("To save daily energy data at midnight reliably, please disable battery optimisation for this app.")
+                        .setMessage("To save daily energy data at midnight reliably, disable battery optimisation for this app.")
                         .setPositiveButton("OK") { _, _ ->
                             startActivity(android.content.Intent(
                                 android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
